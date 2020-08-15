@@ -16,7 +16,7 @@
 #pragma comment(lib, "mscoree.lib")
 
 // 当前插件平台版本号
-static const wchar_t* VERSION = L"1.16.1.2";
+static const wchar_t* VERSION = L"1.16.20.3";
 static const wchar_t* ISFORCOMMERCIAL = L"1";
 
 static bool netregok = false;
@@ -259,6 +259,10 @@ void setCommandDescribeEx(const char* cmd, const char* description, char level, 
 	auto strcmd = GBKToUTF8(cmd);
 	if (strcmd.length()) {
 		auto flgs = std::make_unique<CmdDescriptionFlags>();
+		flgs->description = GBKToUTF8(description);
+		flgs->level = level;
+		flgs->flag1 = flag1;
+		flgs->flag2 = flag2;
 		cmddescripts[strcmd] = std::move(flgs);
 		if (regHandle) {
 			std::string c = strcmd;
@@ -309,7 +313,7 @@ static std::unordered_map<Player*, bool> playerSign;
 // 功能：获取在线玩家列表
 // 参数个数：0个
 // 返回值：玩家列表的Json字符串
-const char* getOnLinePlayers() {
+std::string getOnLinePlayers() {
 	Json::Value rt;
 	Json::Value jv;
 	mleftlock.lock();
@@ -323,11 +327,7 @@ const char* getOnLinePlayers() {
 		}
 	}
 	mleftlock.unlock();
-	const char* jstr = rt.toStyledString().c_str();
-	VA l = strlen(jstr);
-	std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-	strcpy_s(*(char**)&x, l + 1, jstr);
-	return *(const char**)&x;
+	return rt.isNull() ? "" : std::string(rt.toStyledString().c_str());
 }
 
 #if (COMMERCIAL)
@@ -355,7 +355,7 @@ static void countPos2AOff(BPos3* a1, BPos3* a2) {
 // 参数类型：整型，字符串，字符串，布尔型，布尔型
 // 参数详解：dimensionid - 地图维度，posa - 坐标JSON字符串，posb - 坐标JSON字符串，exent - 是否导出实体，exblk - 是否导出方块
 // 返回值：结构json字符串
-static const char* getStructure(int did, const char* jsonposa, const char* jsonposb, bool exent, bool exblk) {
+static std::string getStructure(int did, const char* jsonposa, const char* jsonposb, bool exent, bool exblk) {
 	std::unique_ptr<char[]> x;
 	if (p_level && (did > -1 && did < 3)) {
 		Json::Value jposa = toJson(jsonposa);
@@ -370,18 +370,14 @@ static const char* getStructure(int did, const char* jsonposa, const char* jsonp
 			b.z = jposb["z"].asInt();
 			countPos2AOff(&a, &b);
 			VA t = StructureTemplate::getStructure(p_level, did, a, b, exent, exblk);
-			std::string ret = (*(Tag**)t)->toJson().toStyledString();
+			std::string ret = std::string((*(Tag**)t)->toJson().toStyledString().c_str());
 			(*(Tag**)t)->clearAll();
 			*(VA*)t = 0;
 			delete (VA*)t;
-			const char* jstr = ret.c_str();
-			VA l = strlen(jstr);
-			x = std::unique_ptr<char[]>(new char[l + 1]);
-			strcpy_s(*(char**)&x, l + 1, jstr);
-			return *(const char**)&x;
+			return ret;
 		}
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setStructure
@@ -428,20 +424,16 @@ static Json::Value getAbilities(Player* p) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：能力json字符串
-static const char* getPlayerAbilities(const char* uuid) {
+static std::string getPlayerAbilities(const char* uuid) {
 	std::string ret = "";
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
 		auto jv = getAbilities(p);
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerAbilities
@@ -481,7 +473,7 @@ static bool setPlayerAbilities(const char* uuid, const char* abdata) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：属性json字符串
-static const char* getPlayerAttributes(const char* uuid) {
+static std::string getPlayerAttributes(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -491,13 +483,9 @@ static const char* getPlayerAttributes(const char* uuid) {
 			jv[k.first] = p->getAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerTempAttributes
@@ -537,7 +525,7 @@ static bool setPlayerTempAttributes(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：属性上限值json字符串
-static const char* getPlayerMaxAttributes(const char* uuid) {
+static std::string getPlayerMaxAttributes(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -547,13 +535,9 @@ static const char* getPlayerMaxAttributes(const char* uuid) {
 			jv[k.first] = p->getMaxAttr(k.first.c_str());
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerMaxAttributes
@@ -593,19 +577,15 @@ static bool setPlayerMaxAttributes(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：物品列表json字符串
-static const char* getPlayerItems(const char* uuid) {
+static std::string getPlayerItems(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
 		Json::Value jv = p->getAllItemsList();
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerItems
@@ -643,7 +623,7 @@ static bool setPlayerItems(const char* uuid, const char* jstr) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：当前选中项信息json字符串
-static const char* getPlayerSelectedItem(const char* uuid) {
+static std::string getPlayerSelectedItem(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -654,13 +634,9 @@ static const char* getPlayerSelectedItem(const char* uuid) {
 			jv["selecteditem"] = its->toJson();
 		}
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：addPlayerItemEx
@@ -700,19 +676,15 @@ static bool addPlayerItemEx(const char* uuid, const char* item) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：效果列表json字符串
-static const char* getPlayerEffects(const char* uuid) {
+static std::string getPlayerEffects(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		Json::Value jv = p->getAllEffects();
 		if (!jv.isNull()) {
-			const char* ret = jv.toStyledString().c_str();
-			VA l = strlen(ret);
-			std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-			strcpy_s(*(char**)&x, l + 1, ret);
-			return *(const char**)&x;
+			return std::string(jv.toStyledString().c_str());
 		}
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerEffects
@@ -908,7 +880,7 @@ static bool removePlayerSidebar(const char* uuid) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：权限与模式的json字符串
-static const char* getPlayerPermissionAndGametype(const char* uuid) {
+static std::string getPlayerPermissionAndGametype(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -917,13 +889,9 @@ static const char* getPlayerPermissionAndGametype(const char* uuid) {
 		jv["permission"] = (int)p->getPermissionLevel();
 		jv["gametype"] = p->getGameType();
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：setPlayerPermissionAndGametype
@@ -1039,7 +1007,7 @@ static void addPlayerJsonInfo(Json::Value& jv, Player* p) {
 // 参数类型：字符串
 // 参数详解：uuid - 在线玩家的uuid字符串
 // 返回值：玩家基本信息json字符串
-const char* selectPlayer(const char* uuid) {
+std::string selectPlayer(const char* uuid) {
 	Player* p = onlinePlayers[uuid];
 	if (playerSign[p]) {
 		mleftlock.lock();
@@ -1051,13 +1019,9 @@ const char* selectPlayer(const char* uuid) {
 		jv["health"] = p->getAttr("health");
 #endif
 		mleftlock.unlock();
-		const char* ret = jv.toStyledString().c_str();
-		VA l = strlen(ret);
-		std::unique_ptr<char[]> x = std::unique_ptr<char[]>(new char[l + 1]);
-		strcpy_s(*(char**)&x, l + 1, ret);
-		return *(const char**)&x;
+		return std::string(jv.toStyledString().c_str());
 	}
-	return NULL;
+	return "";
 }
 
 // 函数名：talkAs
@@ -1319,8 +1283,8 @@ static void getDamageInfo(void* p, void* dsrc, MobDieEvent* ue) {			// IDA Mob::
 
 bool hooked = false;
 
-// 此处开始接收异步数据
-THook2(_CS_MAIN, VA, 0x000B8960,
+// 此处开始接收异步数据			// IDA main
+THook2(_CS_MAIN, VA, MSSYM_A4main,
 	VA a1, VA a2, VA a3) {
 	initMods();
 	return original(a1, a2, a3);
@@ -1377,7 +1341,8 @@ THook2(_CS_ONSERVERCMD, bool,
 	e.data = &se;
 	bool ret = runCscode(ActEvent.ONSERVERCMD, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, cmd);
+		ret = original(_this, cmd);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSERVERCMD, ActMode::AFTER, e);
 	}
@@ -1461,10 +1426,15 @@ THook2(_CS_ONUSEITEM, bool,
 	autoByteCpy(&ue.itemname, item->getName().c_str());
 	ue.itemid = item->getId();
 	ue.itemaux = item->getAuxValue();
+	if (pBlk) {
+		autoByteCpy(&ue.blockname, pBlk->getLegacyBlock()->getFullName().c_str());
+		ue.blockid = pBlk->getLegacyBlock()->getBlockItemID();
+	}
 	e.data = &ue;
 	bool ret = runCscode(ActEvent.ONUSEITEM, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, item, pBlkpos, a4, v5, pBlk);
+		ret = original(_this, item, pBlkpos, a4, v5, pBlk);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONUSEITEM, ActMode::AFTER, e);
 	}
@@ -1490,7 +1460,8 @@ THook2(_CS_ONPLACEDBLOCK, bool,
 		e.data = &pe;
 		bool ret = runCscode(ActEvent.ONPLACEDBLOCK, ActMode::BEFORE, e);
 		if (ret) {
-			e.result = ret = original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
+			ret = original(_this, pBlk, pBlkpos, a4, pPlayer, _bool);
+			e.result = ret;
 			e.mode = ActMode::AFTER;
 			runCscode(ActEvent.ONPLACEDBLOCK, ActMode::AFTER, e);
 		}
@@ -1519,7 +1490,8 @@ THook2(_CS_ONDESTROYBLOCK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONDESTROYBLOCK, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pBlkpos);
+		ret = original(_this, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONDESTROYBLOCK, ActMode::AFTER, e);
 	}
@@ -1545,7 +1517,8 @@ THook2(_CS_ONCHESTBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, pBlkpos);
+		ret = original(_this, pPlayer, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSTARTOPENCHEST, ActMode::AFTER, e);
 	}
@@ -1571,7 +1544,8 @@ THook2(_CS_ONBARRELBLOCKUSE, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, pBlkpos);
+		ret = original(_this, pPlayer, pBlkpos);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONSTARTOPENBARREL, ActMode::AFTER, e);
 	}
@@ -1694,7 +1668,12 @@ THook2(_CS_ONCHANGEDIMENSION, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(_this, pPlayer, req);
+		ret = original(_this, pPlayer, req);
+		e.result = ret;
+		if (ret) {
+			// 此处刷新玩家信息
+			addPlayerInfo(&de, pPlayer);
+		}
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONCHANGEDIMENSION, ActMode::AFTER, e);
 	}
@@ -1958,7 +1937,8 @@ THook2(_CS_ONATTACK, bool,
 	e.data = &de;
 	bool ret = runCscode(ActEvent.ONATTACK, ActMode::BEFORE, e);
 	if (ret) {
-		e.result = ret = original(pPlayer, pa);
+		ret = original(pPlayer, pa);
+		e.result = ret;
 		e.mode = ActMode::AFTER;
 		runCscode(ActEvent.ONATTACK, ActMode::AFTER, e);
 	}
@@ -2003,7 +1983,7 @@ THook2(_CS_SETRESPWNEXPLOREDE, bool,
 	Player* pPlayer, BlockPos* a2, BlockSource* a3, Level* a4) {
 	auto v8 = a3->getBlock(a2);
 	auto v9 = (VA*)*((VA*)v8 + 2);
-	VA qwt = SYM_OBJECT(VA, 0x191E308);
+	VA qwt = SYM_OBJECT(VA, (MSSYM_B1QE19RespawnAnchorChargeB1AE13VanillaStatesB2AAA23VB2QDE16ItemStateVariantB1AA1HB2AAA1B + 8));
 	if (!*(char*)(*v9 + 32 * qwt + 460)
 		|| !(((unsigned int)*((unsigned __int16*)v8 + 4) >> (*(char*)(*v9 + 32 * qwt + 444)
 			- *(char*)(*v9 + 32 * qwt + 448)

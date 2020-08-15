@@ -62,14 +62,22 @@ struct ACTEVENT {
 	const std::string ONINPUTTEXT = u8"onInputText";
 	const std::string ONINPUTCOMMAND = u8"onInputCommand";
 	const std::string ONLEVELEXPLODE = u8"onLevelExplode";
+#if (COMMERCIAL)
+	const std::string ONMOBHURT = u8"onMobHurt";
+	const std::string ONBLOCKCMD = u8"onBlockCmd";
+	const std::string ONNPCCMD = u8"onNpcCmd";
+	const std::string ONCOMMANDBLOCKUPDATE = u8"onCommandBlockUpdate";
+#endif
 };
 
+#pragma pack(1)
 struct Events {
 	EventType type;	// 事件类型
 	ActMode mode;	// 触发模式
 	int result;		// 事件结果（注册After事件时，此值有效）
 	void* data;		// 原始数据指针
 };
+#pragma pack()
 
 struct ServerCmdEvent {
 	char* cmd;	// 指令数据
@@ -147,6 +155,8 @@ struct UseItemEvent : PlayerEvent {
 	BPos3 position;		// 操作方块所在位置
 	short itemid;		// 物品ID
 	short itemaux;		// 物品特殊值
+	char* blockname;	// 操作方块名称
+	short blockid;		// 操作方块ID
 public:
 	UseItemEvent() {
 		memset(this, 0, sizeof(UseItemEvent));
@@ -155,6 +165,10 @@ public:
 		if (itemname) {
 			delete itemname;
 			itemname = NULL;
+		}
+		if (blockname) {
+			delete blockname;
+			blockname = NULL;
 		}
 		((PlayerEvent*)this)->releaseAll();
 	}

@@ -184,7 +184,16 @@ namespace CSR
 	public struct Vec3 {
 		public float x, y, z;
 	}
-	
+
+	[StructLayoutAttribute(LayoutKind.Sequential)]
+	public struct Std_String {
+		public IntPtr data;
+		public ulong sd;
+		public ulong len;
+		public ulong uk3;
+	}
+
+
 	public class StrTool {
 		[DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true)]
 		internal static extern int lstrlenA(IntPtr ptr);
@@ -206,6 +215,27 @@ namespace CSR
 		// 四字节转浮点
 		public static float itof(int x) {
 			return BitConverter.ToSingle(BitConverter.GetBytes(x), 0);
+		}
+		// std::string中读取c_str
+		public static string c_str(Std_String s)
+        {
+			try
+            {
+				if (s.len < 1)
+					return String.Empty;
+				if (s.len < 16)
+				{
+					byte[] c = BitConverter.GetBytes((ulong)s.data);
+					byte[] d = BitConverter.GetBytes(s.sd);
+					byte[] str = new byte[16];
+					Array.Copy(c, str, 8);
+					Array.Copy(d, 0, str, 8, 8);
+					return Encoding.UTF8.GetString(str, 0, (int)s.len);
+				}
+				return readUTF8str(s.data);
+			}
+            catch (Exception e){ Console.WriteLine(e.StackTrace); }
+			return null;
 		}
 	}
 	
@@ -237,63 +267,67 @@ namespace CSR
 				Console.WriteLine("Empty struct data.");
 				return null;
 			}
-			switch ((EventType)e.type) {
-				case EventType.onServerCmd:
-					return ServerCmdEvent.getFrom(e);
-				case EventType.onServerCmdOutput:
-					return ServerCmdOutputEvent.getFrom(e);
-				case EventType.onFormSelect:
-					return FormSelectEvent.getFrom(e);
-				case EventType.onUseItem:
-					return UseItemEvent.getFrom(e);
-				case EventType.onPlacedBlock:
-					return PlacedBlockEvent.getFrom(e);
-				case EventType.onDestroyBlock:
-					return DestroyBlockEvent.getFrom(e);
-				case EventType.onStartOpenChest:
-					return StartOpenChestEvent.getFrom(e);
-				case EventType.onStartOpenBarrel:
-					return StartOpenBarrelEvent.getFrom(e);
-				case EventType.onStopOpenChest:
-					return StopOpenChestEvent.getFrom(e);
-				case EventType.onStopOpenBarrel:
-					return StopOpenBarrelEvent.getFrom(e);
-				case EventType.onSetSlot:
-					return SetSlotEvent.getFrom(e);
-				case EventType.onChangeDimension:
-					return ChangeDimensionEvent.getFrom(e);
-				case EventType.onMobDie:
-					return MobDieEvent.getFrom(e);
-				case EventType.onMobHurt:
-					return MobHurtEvent.getFrom(e);
-				case EventType.onRespawn:
-					return RespawnEvent.getFrom(e);
-				case EventType.onChat:
-					return ChatEvent.getFrom(e);
-				case EventType.onInputText:
-					return InputTextEvent.getFrom(e);
-				case EventType.onCommandBlockUpdate:
-					return CommandBlockUpdateEvent.getFrom(e);
-				case EventType.onInputCommand:
-					return InputCommandEvent.getFrom(e);
-				case EventType.onBlockCmd:
-					return BlockCmdEvent.getFrom(e);
-				case EventType.onNpcCmd:
-					return NpcCmdEvent.getFrom(e);
-				case EventType.onLoadName:
-					return LoadNameEvent.getFrom(e);
-				case EventType.onPlayerLeft:
-					return PlayerLeftEvent.getFrom(e);
-				case EventType.onMove:
-					return MoveEvent.getFrom(e);
-				case EventType.onAttack:
-					return AttackEvent.getFrom(e);
-				case EventType.onLevelExplode:
-					return LevelExplodeEvent.getFrom(e);
-				default:
-					// do nothing
-					break;
-			}
+			try
+			{
+				switch ((EventType)e.type)
+				{
+					case EventType.onServerCmd:
+						return ServerCmdEvent.getFrom(e);
+					case EventType.onServerCmdOutput:
+						return ServerCmdOutputEvent.getFrom(e);
+					case EventType.onFormSelect:
+						return FormSelectEvent.getFrom(e);
+					case EventType.onUseItem:
+						return UseItemEvent.getFrom(e);
+					case EventType.onPlacedBlock:
+						return PlacedBlockEvent.getFrom(e);
+					case EventType.onDestroyBlock:
+						return DestroyBlockEvent.getFrom(e);
+					case EventType.onStartOpenChest:
+						return StartOpenChestEvent.getFrom(e);
+					case EventType.onStartOpenBarrel:
+						return StartOpenBarrelEvent.getFrom(e);
+					case EventType.onStopOpenChest:
+						return StopOpenChestEvent.getFrom(e);
+					case EventType.onStopOpenBarrel:
+						return StopOpenBarrelEvent.getFrom(e);
+					case EventType.onSetSlot:
+						return SetSlotEvent.getFrom(e);
+					case EventType.onChangeDimension:
+						return ChangeDimensionEvent.getFrom(e);
+					case EventType.onMobDie:
+						return MobDieEvent.getFrom(e);
+					case EventType.onMobHurt:
+						return MobHurtEvent.getFrom(e);
+					case EventType.onRespawn:
+						return RespawnEvent.getFrom(e);
+					case EventType.onChat:
+						return ChatEvent.getFrom(e);
+					case EventType.onInputText:
+						return InputTextEvent.getFrom(e);
+					case EventType.onCommandBlockUpdate:
+						return CommandBlockUpdateEvent.getFrom(e);
+					case EventType.onInputCommand:
+						return InputCommandEvent.getFrom(e);
+					case EventType.onBlockCmd:
+						return BlockCmdEvent.getFrom(e);
+					case EventType.onNpcCmd:
+						return NpcCmdEvent.getFrom(e);
+					case EventType.onLoadName:
+						return LoadNameEvent.getFrom(e);
+					case EventType.onPlayerLeft:
+						return PlayerLeftEvent.getFrom(e);
+					case EventType.onMove:
+						return MoveEvent.getFrom(e);
+					case EventType.onAttack:
+						return AttackEvent.getFrom(e);
+					case EventType.onLevelExplode:
+						return LevelExplodeEvent.getFrom(e);
+					default:
+						// do nothing
+						break;
+				}
+			} catch (Exception ex) { Console.WriteLine(ex.StackTrace); }
 			return null;
 		}
 		
@@ -443,6 +477,8 @@ namespace CSR
 		protected BPos3 mposition;
 		protected short mitemid;
 		protected short mitemaux;
+		protected string mblockname;
+		protected short mblockid;
 		/// <summary>
 		/// 物品名称
 		/// </summary>
@@ -459,6 +495,14 @@ namespace CSR
 		/// 物品特殊值
 		/// </summary>
 		public short itemaux {get{return mitemaux;}}
+		/// <summary>
+		/// 操作方块名称
+		/// </summary>
+		public string blockname { get { return mblockname; } }
+		/// <summary>
+		/// 操作方块id
+		/// </summary>
+		public short blockid { get { return mblockid; } }
 		public static new UseItemEvent getFrom(Events e)
 		{
 			var ue = createHead(e, EventType.onUseItem, typeof(UseItemEvent)) as UseItemEvent;
@@ -470,6 +514,8 @@ namespace CSR
 			ue.mposition = (BPos3)Marshal.PtrToStructure(s + 48, typeof(BPos3));
 			ue.mitemid = Marshal.ReadInt16(s, 60);
 			ue.mitemaux = Marshal.ReadInt16(s, 62);
+			ue.mblockname = StrTool.readUTF8str((IntPtr)Marshal.ReadInt64(s, 64));
+			ue.mblockid = Marshal.ReadInt16(s, 80);
 			return ue;
 		}
 	}
@@ -546,7 +592,7 @@ namespace CSR
 	
 	/// <summary>
 	/// 开桶监听<br/>
-	/// 拦截可否：是
+	/// 拦截可否：否
 	/// </summary>
 	public class StartOpenBarrelEvent : BlockEvent {
 		public static new StartOpenBarrelEvent getFrom(Events e)
@@ -899,15 +945,15 @@ namespace CSR
 			return le;
 		}
 	}
-	
+
 	/// <summary>
-	/// 玩家输入文本监听<br/>
+	/// 玩家输入指令监听<br/>
 	/// 拦截可否：是
 	/// </summary>
 	public class InputCommandEvent : PlayerEvent {
 		protected string mcmd;
 		/// <summary>
-		/// 输入的文本
+		/// 玩家输入的指令
 		/// </summary>
 		public string cmd {get{return mcmd;}}
 		public static new InputCommandEvent getFrom(Events e)
